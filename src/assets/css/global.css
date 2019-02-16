@@ -3,3 +3,11 @@ html, body, #app {
     margin: 0;
     padding: 0;
 }
+/* 给左侧菜单设置样式 */
+.el-submenu__title ,
+.el-menu-item {
+    font-size: 13px;
+}
+i.iconfont{
+    margin-right: 10px;
+}
