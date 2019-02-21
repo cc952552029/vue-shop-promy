@@ -56,7 +56,12 @@
               @click="delUser(info.row.id)"
             ></el-button>
             <el-tooltip content="分配角色" placement="top" :enterable="false">
-              <el-button type="warning" icon="el-icon-setting" size="mini"></el-button>
+              <el-button
+                type="warning"
+                icon="el-icon-setting"
+                size="mini"
+                @click="showFenpeiDialog(info.row.id)"
+              ></el-button>
             </el-tooltip>
           </template>
         </el-table-column>
@@ -119,6 +124,36 @@
           <el-button type="primary" @click="editUser">确 定</el-button>
         </span>
       </el-dialog>
+      <!-- 分配角色对话框 -->
+      <el-dialog
+        title="分配角色"
+        :visible.sync="fenpeiDialogVisible"
+        width="50%"
+        @close="fenpeiDialogClose"
+      >
+        <el-form
+          :rules="fenpeiFormRules"
+          ref="fenpeiFormRef"
+          :model="fenpeiForm"
+          label-width="120px"
+        >
+          <el-form-item label="当前的用户:" prop="username">{{fenpeiForm.username}}</el-form-item>
+          <el-form-item label="分配的角色:" prop="rid">
+            <el-select v-model="fenpeiForm.rid" placeholder="请选择">
+              <el-option
+                v-for="item in roleInfos"
+                :key="item.id"
+                :label="item.roleName"
+                :value="item.id"
+              ></el-option>
+            </el-select>
+          </el-form-item>
+        </el-form>
+        <span slot="footer" class="dialog-footer">
+          <el-button @click="fenpeiDialogVisible = false">取 消</el-button>
+          <el-button type="primary" @click="fenpeiUser">确 定</el-button>
+        </span>
+      </el-dialog>
     </el-card>
   </div>
 </template>
@@ -130,6 +165,52 @@ export default {
     this.getUserInfos()
   },
   methods: {
+    // 展开分配角色对话框
+    async showFenpeiDialog(id) {
+      // id 被分配角色的目标id，
+      // 展开对话框
+      this.fenpeiDialogVisible = true
+      //  根据角色查询id
+      const { data: res } = await this.$http.get('users/' + id)
+      if (res.meta.status !== 200) {
+        return this.$message.error(res.meta.msg)
+      }
+      this.fenpeiForm = res.data
+
+      if (this.fenpeiForm.rid === 0) {
+        this.fenpeiForm.rid = ''
+      }
+      // 把共分配的角色信息获得出来
+      const { data: res2 } = await this.$http.get('roles')
+      if (res2.meta.status !== 200) {
+        return this.$message.error(res.meta.msg)
+      }
+      this.roleInfos = res2.data
+    },
+    // 收集数据存储
+    fenpeiUser() {
+      // 表单校验
+      this.$refs.fenpeiFormRef.validate(async valid => {
+        if (valid) {
+          const { data: res } = await this.$http.put(
+            'users/' + this.fenpeiForm.id + '/role',
+            this.fenpeiForm
+          )
+          if (res.meta.status !== 200) {
+            return this.$message.error(res.meta.msg)
+          }
+          // 分配角色成功  数据重新加载 关闭弹框 提示成功
+          this.$message.success(res.meta.msg)
+          this.fenpeiDialogVisible = false
+          this.getUserInfos()
+        }
+      })
+    },
+    // 分配角色重置表单
+    fenpeiDialogClose() {
+      this.$refs.editFormRef.resetFields()
+    },
+    //  修改重置表单
     editDialogClose() {
       this.$refs.editFormRef.resetFields()
     },
@@ -176,8 +257,12 @@ export default {
           if (res.meta.status !== 200) {
             return this.$message.error(res.meta.msg)
           }
+
           // 删除成功时候的提示 刷新数据 消息提示
           this.$message.success(res.meta.msg)
+          if (this.userInfos.length === 1 && this.querycdt.pagenum > 1) {
+            this.querycdt.pagenum--
+          }
           this.getUserInfos()
         })
         .catch(() => {})
@@ -274,7 +359,19 @@ export default {
     }
 
     return {
-      // 添加用户相关信息
+      // 表单数据
+      fenpeiForm: {
+        id: 0, // 当前被修该的id
+        username: '',
+        rid: 0 // 角色id
+      },
+      // 分配用户规则校验
+      fenpeiFormRules: {
+        rid: [{ required: true, message: '角色必选', trigger: 'change' }]
+      },
+      // 分配角色显示开关
+      fenpeiDialogVisible: false,
+      // 修改用户相关信息
       editDialogVisible: false,
       // from表单相关数据
       editForm: {
